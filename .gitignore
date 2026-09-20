@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Generated data, checkpoints, training logs (regenerate via src/, not source code)
+data/
+models_ckpt/
+catboost_info/
+
+# Figures and tables (excluded from this repository by design)
+figures/
+manuscript/
+results/
+BENCHMARK_WTL.csv
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+
+# Narrative/audit reports containing result tables (excluded by design)
+SOURCE_PAPER_AUDIT.md
+REPRODUCTION_REPORT.md
+SOURCE_WEAKNESS_ANALYSIS.md
+DATA_AUDIT.md
+MODEL_CANDIDATES.md
+MODEL_SELECTION_REPORT.md
+FINAL_RESEARCH_SUMMARY.md
+SOURCE_METHOD_REPRODUCTION/
+
+# Working/scratch files, packaging artifacts
+scratch/
+*.zip
+
+# OS / editor
+.DS_Store

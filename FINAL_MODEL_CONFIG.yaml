@@ -1,0 +1,44 @@
+selected_architecture: PRA-Net (Physics-Residual Attention Network)
+implementation: src/candidates/pra_net.py (PRANet class, pra_loss function)
+architecture_components:
+  use_physics: true    # DC-WLS residual auxiliary feature (Sec. "physics" ablation target)
+  use_attention: true  # multi-head self-attention over bus tokens, residual-biased
+  n_heads: 4
+  detection_head: Dirichlet evidential (models/evidential.py::EvidentialHead)
+  localization_head: per-bus linear + sigmoid, focal-BCE supervised (multi-label)
+primary_system_for_selection: case30
+secondary_system_for_generalization_test: case118
+datasets:
+  case30: data/processed/case30/dataset.npz
+  case118: data/processed/case118/dataset.npz
+preprocessing: per-channel z-score standardization fit on TRAIN split only (src/utils/data.py::Standardizer)
+split: scenario/chronic-level 70/15/15 (data/processed/{system}/DATA_SPLIT_MANIFEST.csv); no random-row leakage
+features:
+  measurement_channels: "P_flow, Q_flow, P_inj, Q_inj, Vmag (identical to source paper)"
+  per_bus_features: "6 base features (models/graph_features.py::build_bus_features) + 1 DC-WLS residual feature = 7"
+hyperparameters:
+  lr: 0.002
+  gru_hidden: 64
+  gamma_loc: 1.0            # weight of the localization loss term relative to detection loss
+  n_heads: 4                # attention heads (not tuned; Stage-3 search space did not include it)
+  # note: gcn_hidden was part of the shared Stage-3 Optuna search space but is not
+  # consumed by PRA-Net's constructor (no GCN branch in this candidate); reported
+  # here only for provenance of the tuning run, not an active hyperparameter.
+optimizer: Adam
+loss: "Dirichlet evidential detection loss (annealed KL-to-uniform) + focal BCE (gamma=2, alpha=0.75) multi-label localization loss, weighted by gamma_loc (src/candidates/pra_net.py::pra_loss)"
+model_selection_metric: "0.5 * val_detection_AUROC(probability-based) + 0.5 * val_localization_macro_F1"
+epochs: 25
+early_stopping: best-val-checkpoint over the fixed 25-epoch budget (no separate patience counter; consistent with the 15-epoch budget used during Stage-3 tuning)
+seeds_for_final_test: [0, 1, 2, 3, 4]   # >=5 seeds per master-task Sec. 22
+class_balancing: "focal loss (gamma=2, alpha=0.75) for extreme per-bus attacked/unattacked imbalance; no oversampling of minority sequences"
+thresholds: "detection: argmax of Dirichlet predictive probability (no separate tuned threshold); localization: sigmoid > 0.5 per bus"
+augmentation: none
+selection_provenance:
+  stage1_smoke_test: "results/candidates/ (inline smoke run, 1 seed, reduced budget) -- all 4 candidates converged, none collapsed"
+  stage2_screening: results/candidates/stage2_screening.json (3 seeds, 20 epochs, default hyperparameters, case30 val split)
+  stage3_tuning: "scratch/tune_pranet.log (Optuna TPE, 10 trials, 2 seeds, 15 epochs); best trial value 0.7252 vs EGT-Net-NoGCN's 0.7030 and EGT-Net-SNGP's 0.6862 under the same search budget"
+notes: >
+  Frozen after Stage 3 validation-only tuning; the TEST split was not consulted
+  at any point before this file was written. Per master-task Sec. 11, the
+  architecture/hyperparameters below are not to be changed based on subsequent
+  TEST-set results.
